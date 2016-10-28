@@ -239,7 +239,7 @@ namespace Rinity.Q
 
             else if (type == QTargetThread.MainThread)
             {
-                if (parent != null && parent.type == QTargetThread.MainThread)
+                if (Q.isMainThread)
                     InvokeSync();
                 else
                     Q.Defer(InvokeSync);
