@@ -132,6 +132,8 @@ namespace Rinity.Q
     {
         private QTask parent { get; set; }
 
+        private object syncObject;
+
         private Action callback { get; set; }
         private QTargetThread type { get; set; }
         private QTaskOption option { get; set; }
@@ -158,6 +160,8 @@ namespace Rinity.Q
 
         private QTask(QTask parent, Action callback, QTargetThread type, QTaskOption option)
         {
+            this.syncObject = new object();
+
             this.parent = parent;
             this.callback = callback;
             this.chains = new List<QTask>();
@@ -180,6 +184,11 @@ namespace Rinity.Q
 
         public bool Wait(int timeout)
         {
+            if (type == QTargetThread.MainThread && Q.isMainThread)
+                throw new InvalidOperationException("");
+            if (state == QTaskState.Done || state == QTaskState.Canceled)
+                return true;
+
             if (option == QTaskOption.LightTask)
             {
                 var targetTime = Environment.TickCount + timeout;
@@ -199,8 +208,14 @@ namespace Rinity.Q
                 timeout -= Environment.TickCount - targetTime;
             }
 
-            lock (this)
-                return Monitor.Wait(this, timeout);
+            lock (syncObject)
+            {
+                // Double-Check
+                if (state == QTaskState.Done || state == QTaskState.Canceled)
+                    return true;
+
+                return Monitor.Wait(syncObject, timeout);
+            }
         }
         public void Wait()
         {
@@ -221,6 +236,9 @@ namespace Rinity.Q
 
             if (Interlocked.CompareExchange(ref state, QTaskState.Done, QTaskState.Running) != QTaskState.Running)
                 throw new InvalidOperationException();
+
+            lock (syncObject)
+                Monitor.PulseAll(syncObject);
 
             InvokeChains();
         }
