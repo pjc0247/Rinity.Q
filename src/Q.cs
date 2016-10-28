@@ -186,8 +186,10 @@ namespace Rinity.Q
 
                 for (int i = 100; i < 100 * 100; i += 20)
                 {
-                    Thread.SpinWait(10);
+                    Thread.SpinWait(i);
 
+                    if (i > 1000)
+                        Thread.Sleep(i / 1000);
                     if (state == QTaskState.Done)
                         return true;
                     if (Environment.TickCount >= targetTime)
